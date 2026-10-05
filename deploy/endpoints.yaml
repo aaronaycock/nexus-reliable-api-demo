@@ -1,0 +1,32 @@
+# Inventory for planning Nexus endpoints across environments and regions.
+#   python scripts/plan_endpoints.py deploy/endpoints.yaml
+#   python scripts/plan_endpoints.py deploy/endpoints.yaml --strategy per-team --terraform deploy/terraform/endpoints.tf
+#
+# A "stamp" is one environment in one region. Every team runs one namespace per
+# stamp, and callers only ever call endpoints in their own stamp.
+
+stamps: [dev, staging-us, staging-ch, prod-us, prod-ch]
+
+# Teams that publish capabilities (Nexus services). {stamp} is filled in per stamp.
+publishers:
+  notifications:
+    namespace: "notifications-{stamp}"
+    task_queue: notifications-nexus
+    services: [notifications.v1]
+  task-center:
+    namespace: "task-center-{stamp}"
+    task_queue: task-center-nexus
+    services: [task-center.v1]
+  documents:  # example: one team that publishes two capabilities from one worker
+    namespace: "documents-{stamp}"
+    task_queue: documents-nexus
+    services: [statements.v1, reports.v1]
+
+# Namespaces that call those capabilities: standalone-operation callers and workflow callers alike.
+callers:
+  api-callers:  # non-Temporal services and the HTTP gateway
+    namespace: "api-callers-{stamp}"
+    calls: [notifications.v1, task-center.v1]
+  billing:
+    namespace: "billing-{stamp}"
+    calls: [notifications.v1, task-center.v1, statements.v1]

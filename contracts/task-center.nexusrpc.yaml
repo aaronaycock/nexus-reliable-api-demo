@@ -1,0 +1,51 @@
+# Task Center's human-in-the-loop capability. Written by hand: this contract
+# describes a workflow, not an existing REST route. Regenerate code with:
+#   make codegen
+nexusrpc: "1.0.0"
+$schema: https://json-schema.org/draft/2020-12/schema
+
+services:
+  TaskCenter:
+    fqn: task-center.v1  # the service name on the wire; the major version is part of it
+    description: Ask a person to approve, reject, or provide a value, and get their answer back.
+    operations:
+      requestInput:
+        fqn: request_input  # the operation name on the wire
+        description: >-
+          Creates a task in Task Center, notifies the assignee, and completes when
+          the person responds or the deadline passes. Asynchronous; may take days.
+        input: { $ref: "#/$defs/HumanInputRequest" }
+        output: { $ref: "#/$defs/HumanInputResult" }
+
+$defs:
+  HumanInputRequest:
+    type: object
+    additionalProperties: false
+    properties:
+      reference:
+        type: string
+        description: Business key, e.g. fee-change-42. One task per reference.
+      requested_by:
+        type: string
+        description: Team or system asking, e.g. billing.
+      assignee: { type: string }
+      kind: { type: string, enum: [approve_reject, provide_value] }
+      title: { type: string }
+      details: { type: string }
+      due_in_seconds:
+        type: integer
+        minimum: 1
+        description: How long the person has before the request expires. Defaults to 1 day.
+    required: [reference, requested_by, assignee, kind, title]
+
+  HumanInputResult:
+    type: object
+    additionalProperties: false
+    properties:
+      reference: { type: string }
+      task_id: { type: string }
+      outcome: { type: string, enum: [approved, rejected, provided, expired] }
+      value: { type: string, description: Set when kind is provide_value. }
+      responded_by: { type: string }
+      responded_at: { type: string, format: date-time }
+    required: [reference, task_id, outcome]

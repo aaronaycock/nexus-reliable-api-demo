@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nexus API Demo</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #1b1f24; --muted: #5d6673; --line: #e3e6ea;
+    --accent: #3b5bdb; --accent-ink: #ffffff; --code: #f1f3f5;
+    --ok: #2b8a3e; --ok-bg: #e6f4ea; --run: #1864ab; --run-bg: #e7f0fb;
+    --bad: #c92a2a; --bad-bg: #fdeaea; --warn: #a15c00; --warn-bg: #fff3dc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111418; --panel: #1a1e24; --ink: #e8eaed; --muted: #9aa3ae; --line: #2c323a;
+      --accent: #748ffc; --accent-ink: #0b0d10; --code: #22272e;
+      --ok: #69db7c; --ok-bg: #16301e; --run: #74c0fc; --run-bg: #132a3f;
+      --bad: #ff8787; --bad-bg: #3a1a1a; --warn: #ffc078; --warn-bg: #3a2a12;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 16px 20px; border-bottom: 1px solid var(--line); background: var(--panel);
+           display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; }
+  header h1 { margin: 0; font-size: 18px; }
+  header .sub { color: var(--muted); }
+  header a { color: var(--accent); }
+  main { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(320px, 1.2fr) minmax(300px, 1fr);
+         gap: 16px; padding: 16px 20px; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+  section.wide { grid-column: 1 / -1; }
+  h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  h3 { margin: 14px 0 6px; font-size: 13px; }
+  label { display: block; margin: 10px 0 4px; color: var(--muted); font-size: 12px; }
+  select, input, textarea { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px;
+                            background: var(--panel); color: var(--ink); font: inherit; }
+  textarea, pre, code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+  textarea { min-height: 170px; resize: vertical; }
+  pre { background: var(--code); padding: 10px; border-radius: 6px; overflow-x: auto; margin: 6px 0; white-space: pre-wrap; word-break: break-word; }
+  .row { display: flex; gap: 8px; align-items: end; }
+  .row > * { flex: 1; }
+  button { padding: 7px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel);
+           color: var(--ink); font: inherit; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button.small { padding: 3px 8px; font-size: 12px; }
+  button.on { outline: 2px solid var(--accent); }
+  .muted { color: var(--muted); }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .COMPLETED { color: var(--ok); background: var(--ok-bg); }
+  .RUNNING { color: var(--run); background: var(--run-bg); }
+  .FAILED, .TIMED_OUT, .TERMINATED, .CANCELED { color: var(--bad); background: var(--bad-bg); }
+  .kv { display: grid; grid-template-columns: 110px 1fr; gap: 3px 10px; }
+  .kv div:nth-child(odd) { color: var(--muted); }
+  .note { background: var(--warn-bg); color: var(--warn); padding: 6px 9px; border-radius: 6px; font-size: 12.5px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; }
+  tr.click { cursor: pointer; }
+  tr.click:hover { background: var(--code); }
+  ul.timeline { list-style: none; padding: 0; margin: 0; }
+  ul.timeline li { padding: 3px 0; border-bottom: 1px dashed var(--line); }
+  .item { border-bottom: 1px solid var(--line); padding: 7px 0; }
+  .item:last-child { border-bottom: 0; }
+  .btns { display: flex; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Reliable API delivery with Nexus</h1>
+  <span class="sub">Standalone Nexus Operations through a thin HTTP gateway. Caller namespace: <code id="ns"></code></span>
+  <a id="temporal-ui" target="_blank" rel="noopener">Temporal UI</a>
+</header>
+
+<main>
+  <section>
+    <h2>1. Invoke an operation</h2>
+    <label for="op">Endpoint / service / operation (from the contracts)</label>
+    <select id="op"></select>
+    <p id="op-desc" class="muted"></p>
+    <label for="body">Input (JSON)</label>
+    <textarea id="body" spellcheck="false"></textarea>
+    <div class="row">
+      <div>
+        <label for="key">Idempotency-Key (becomes the operation ID)</label>
+        <input id="key" class="mono">
+      </div>
+      <div style="flex:0 0 auto"><button id="new-key" title="New key">New key</button></div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="wait">Wait for a result (seconds)</label>
+        <input id="wait" type="number" min="0" max="25" value="5">
+      </div>
+      <div style="flex:0 0 auto"><button id="invoke" class="primary">Invoke</button></div>
+    </div>
+    <h3>Same call with curl</h3>
+    <pre id="curl"></pre>
+    <h3>Response</h3>
+    <pre id="response" class="muted">Nothing sent yet.</pre>
+  </section>
+
+  <section>
+    <h2>2. Lifecycle</h2>
+    <div id="life" class="muted">Invoke an operation, or pick one from the list below.</div>
+  </section>
+
+  <section>
+    <h2>3. Demo controls</h2>
+    <p class="muted" style="margin-top:0">These talk to the stand-in services directly. They are not part of the pattern.</p>
+    <h3>Notification API</h3>
+    <div class="btns" id="modes">
+      <button class="small" data-mode="ok">Healthy</button>
+      <button class="small" data-mode="maintenance">Down for maintenance (503)</button>
+      <button class="small" data-mode="bug">Bug (500)</button>
+    </div>
+    <p id="api-stats" class="muted"></p>
+    <h3>Outbox (notifications actually sent)</h3>
+    <div id="outbox" class="muted">Empty.</div>
+    <h3>Task Center: open tasks</h3>
+    <div id="tasks" class="muted">No open tasks.</div>
+  </section>
+
+  <section class="wide">
+    <h2>Recent operations in the caller namespace</h2>
+    <table>
+      <thead><tr><th>Operation ID</th><th>Service / operation</th><th>Status</th><th>Scheduled</th><th>Duration</th></tr></thead>
+      <tbody id="recent"><tr><td colspan="5" class="muted">None yet.</td></tr></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const time = (iso) => iso ? new Date(iso).toLocaleTimeString() : "";
+let cfg, catalog = [], selected = null, timeline = [], lastKey = "";
+
+async function getJSON(url, opts) {
+  const r = await fetch(url, opts);
+  return { status: r.status, body: await r.json() };
+}
+
+function entry() { return catalog[Number($("#op").value)]; }
+
+function newKey() {
+  const e = entry();
+  let ref = "";
+  try { ref = JSON.parse($("#body").value).reference || ""; } catch {}
+  $("#key").value = `${e.operation}-${ref || "adhoc"}-${Math.random().toString(16).slice(2, 6)}`;
+  renderCurl();
+}
+
+function renderCurl() {
+  const e = entry();
+  let body;
+  try { body = JSON.stringify(JSON.parse($("#body").value)); } catch { body = "<invalid JSON>"; }
+  $("#curl").textContent =
+    `curl -X POST '${location.origin}/${e.endpoint}/${e.service}/${e.operation}?wait_s=${$("#wait").value}' \\\n` +
+    `  -H 'Content-Type: application/json' \\\n  -H 'Idempotency-Key: ${$("#key").value}' \\\n  -d '${body}'`;
+}
+
+function loadExample() {
+  const e = entry();
+  $("#op-desc").textContent = e.description;
+  $("#body").value = JSON.stringify(e.example, null, 2);
+  newKey();
+}
+
+async function invoke() {
+  const e = entry();
+  let body;
+  try { body = JSON.parse($("#body").value); } catch { $("#response").textContent = "Input is not valid JSON."; return; }
+  $("#response").textContent = "Sending...";
+  const r = await getJSON(`/${e.endpoint}/${e.service}/${e.operation}?wait_s=${$("#wait").value}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Idempotency-Key": $("#key").value },
+    body: JSON.stringify(body),
+  });
+  const what = r.status === 202 ? "202 Accepted: still running, poll the status_url"
+             : r.status === 200 ? "200 OK: finished within the wait" : `${r.status}`;
+  $("#response").textContent = `${what}\n\n${JSON.stringify(r.body, null, 2)}`;
+  if (r.body.operation_id) select(r.body.operation_id);
+}
+
+function select(id) {
+  if (selected !== id) { selected = id; timeline = []; lastKey = ""; history.replaceState(null, "", `#op=${encodeURIComponent(id)}`); }
+  pollSelected();
+}
+
+async function pollSelected() {
+  if (!selected) return;
+  const r = await getJSON(`/operations/${encodeURIComponent(selected)}`);
+  if (r.status !== 200) return;
+  const d = r.body;
+  const owner = d.owner_view && d.owner_view.pending_activities[0];
+  const key = [d.status, d.state, d.attempt, owner?.attempt, owner?.last_error].join("|");
+  if (key !== lastKey) {
+    lastKey = key;
+    let msg = d.state ? `${d.status} (${d.state})` : d.status;
+    if (owner) msg += `: handler retrying ${owner.activity}, attempt ${owner.attempt}${owner.last_error ? ", " + owner.last_error : ""}`;
+    timeline.unshift({ at: new Date().toLocaleTimeString(), msg });
+  }
+  renderLife(d);
+}
+
+function renderLife(d) {
+  const owner = d.owner_view;
+  let html = `<div class="kv">
+    <div>Operation</div><div class="mono">${esc(d.operation_id)}</div>
+    <div>Target</div><div>${esc(d.endpoint)} / ${esc(d.service)} / ${esc(d.operation)}</div>
+    <div>Status</div><div><span class="pill ${esc(d.status)}">${esc(d.status)}</span> ${d.state ? esc(d.state) : ""}</div>
+    <div>Scheduled</div><div>${time(d.scheduled_at)}${d.closed_at ? " &rarr; closed " + time(d.closed_at) : ", expires " + time(d.expires_at)}</div>
+    <div>Start attempts</div><div>${esc(d.attempt)}${d.last_error ? ` <span class="muted">last: ${esc(d.last_error)}</span>` : ""}</div>
+  </div>`;
+  if (d.handler) {
+    html += `<h3>Handled by</h3><div class="kv">
+      <div>Namespace</div><div class="mono">${esc(d.handler.namespace)}</div>
+      <div>Workflow</div><div class="mono"><a href="${esc(d.handler.ui_url)}" target="_blank" rel="noopener">${esc(d.handler.workflow_id)}</a></div>
+    </div>`;
+  }
+  if (owner) {
+    html += `<h3>Owner's view <span class="muted">(needs read access to ${esc(d.handler.namespace)})</span></h3>`;
+    html += owner.pending_activities.length
+      ? owner.pending_activities.map((p) => `<div class="note">${esc(p.activity)}: attempt ${esc(p.attempt)}${p.last_error ? `, last error: ${esc(p.last_error)}` : ""}${p.next_attempt_at ? `, next try ${time(p.next_attempt_at)}` : ""}</div>`).join("")
+      : `<p class="muted">Workflow ${esc(owner.workflow_status)}, nothing retrying. ${d.service === "task-center.v1" ? "Waiting for a person." : ""}</p>`;
+  }
+  if (d.result) html += `<h3>Result</h3><pre>${esc(JSON.stringify(d.result, null, 2))}</pre>`;
+  if (d.error) html += `<h3>Error</h3><pre>${esc(d.error)}</pre>`;
+  html += `<h3>What we saw</h3><ul class="timeline">${timeline.map((t) => `<li><span class="muted">${t.at}</span> ${esc(t.msg)}</li>`).join("")}</ul>`;
+  $("#life").innerHTML = html;
+  $("#life").classList.remove("muted");
+}
+
+async function pollRecent() {
+  const r = await getJSON("/operations?limit=15");
+  if (r.status !== 200 || !r.body.length) return;
+  $("#recent").innerHTML = r.body.map((o) => `<tr class="click" data-id="${esc(o.operation_id)}">
+    <td class="mono">${esc(o.operation_id)}</td><td>${esc(o.service)} / ${esc(o.operation)}</td>
+    <td><span class="pill ${esc(o.status)}">${esc(o.status)}</span></td>
+    <td>${time(o.scheduled_at)}</td><td>${o.duration_s != null ? o.duration_s.toFixed(2) + "s" : ""}</td></tr>`).join("");
+}
+
+async function pollControls() {
+  try {
+    const s = (await getJSON(`${cfg.notification_api_url}/admin/status`)).body;
+    document.querySelectorAll("#modes button").forEach((b) => b.classList.toggle("on", b.dataset.mode === s.mode));
+    $("#api-stats").textContent = `Mode: ${s.mode}. Requests ${s.requests}, rejected ${s.rejected}, idempotent replays ${s.replays}, sent ${s.sent}.`;
+    const out = (await getJSON(`${cfg.notification_api_url}/v1/notifications?limit=8`)).body;
+    $("#outbox").innerHTML = out.length ? out.map((n) => `<div class="item">
+      <b>${esc(n.recipient)}</b> &middot; ${esc(n.template)} <span class="muted">(${esc(n.channel)}, ref ${esc(n.reference)}, ${time(n.sent_at)})</span></div>`).join("") : "Empty.";
+    $("#outbox").classList.toggle("muted", !out.length);
+  } catch { $("#api-stats").textContent = "Notification API unreachable."; }
+  try {
+    const tasks = (await getJSON(`${cfg.task_center_url}/v1/tasks?status=open`)).body;
+    $("#tasks").innerHTML = tasks.length ? tasks.map((t) => `<div class="item">
+      <b>${esc(t.title)}</b><br><span class="muted">${esc(t.task_id)} &middot; assignee ${esc(t.assignee)} &middot; from ${esc(t.requested_by)}</span>
+      <div class="btns">
+        <button class="small" data-task="${esc(t.task_id)}" data-act="approved">Approve as ${esc(t.assignee)}</button>
+        <button class="small" data-task="${esc(t.task_id)}" data-act="rejected">Reject</button>
+        <button class="small" data-task="${esc(t.task_id)}" data-act="reassign">Reassign</button>
+      </div></div>`).join("") : "No open tasks.";
+    $("#tasks").classList.toggle("muted", !tasks.length);
+  } catch { $("#tasks").textContent = "Task Center unreachable."; }
+}
+
+async function taskAction(taskId, act, assignee) {
+  const base = `${cfg.task_center_url}/v1/tasks/${taskId}`;
+  const opts = (body) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (act === "reassign") {
+    const who = prompt("Reassign to:", "lee");
+    if (who) await fetch(`${base}/reassign`, opts({ assignee: who }));
+  } else {
+    await fetch(`${base}/respond`, opts({ outcome: act, responded_by: assignee }));
+  }
+  pollControls();
+}
+
+async function init() {
+  cfg = (await getJSON("/config")).body;
+  catalog = (await getJSON("/catalog")).body;
+  $("#ns").textContent = cfg.caller_namespace;
+  $("#temporal-ui").href = cfg.temporal_ui_url;
+  $("#op").innerHTML = catalog.map((e, i) => `<option value="${i}">${esc(e.endpoint)} / ${esc(e.service)} / ${esc(e.operation)}</option>`).join("");
+  loadExample();
+  $("#op").onchange = loadExample;
+  $("#new-key").onclick = newKey;
+  $("#invoke").onclick = invoke;
+  ["#body", "#key", "#wait"].forEach((s) => $(s).addEventListener("input", renderCurl));
+  $("#recent").onclick = (ev) => { const tr = ev.target.closest("tr[data-id]"); if (tr) select(tr.dataset.id); };
+  $("#modes").onclick = async (ev) => {
+    const m = ev.target.dataset.mode;
+    if (!m) return;
+    await fetch(`${cfg.notification_api_url}/admin/mode`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: m }) });
+    pollControls();
+  };
+  $("#tasks").onclick = (ev) => {
+    const b = ev.target.closest("button[data-task]");
+    if (b) taskAction(b.dataset.task, b.dataset.act, b.textContent.replace("Approve as ", ""));
+  };
+  setInterval(pollSelected, 1000);
+  setInterval(pollRecent, 2000);
+  setInterval(pollControls, 2000);
+  pollRecent(); pollControls();
+  const fromLink = new URLSearchParams(location.hash.slice(1)).get("op");
+  if (fromLink) select(fromLink);
+}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+.venv/
+.tools/
+.run/
+__pycache__/
+*.pyc
+.env
+cloud.env
+node_modules/

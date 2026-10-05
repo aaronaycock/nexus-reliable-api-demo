@@ -1,0 +1,28 @@
+# Existing APIs to put behind Nexus.
+#
+# For each entry, `make codegen` generates both the Nexus contract and a complete
+# handler (worker, workflow and activity) from the API's OpenAPI spec. Only the
+# routes the API's owner tagged with `x-nexus` become operations. How to call
+# each route comes from the spec itself:
+#   - method, path, request and response types
+#   - the API-key header, from the spec's apiKey security scheme
+#   - the Idempotency-Key header, if the route declares one
+#
+# The fields below are deployment choices that the spec cannot know.
+
+notification-api:
+  openapi: contracts/openapi/notification-api.json
+  contract: contracts/notifications.nexusrpc.yaml
+  contract_module: contracts.gen.notifications
+  handler_package: handlers.notifications
+
+  # Names of settings in common/config.py: where the facade runs and how it reaches the API.
+  namespace: NOTIFY_NAMESPACE
+  task_queue: NOTIFY_TASK_QUEUE
+  base_url: NOTIFICATION_API_URL
+  api_key: NOTIFICATION_API_KEY  # sent only by this worker; callers never see it
+
+  # How hard to try before giving up.
+  retry: { initial_interval_s: 1, backoff: 2.0, maximum_interval_s: 10 }  # minutes, not seconds, in production
+  attempt_timeout_s: 10
+  deadline_s: 3600  # the business deadline for one call

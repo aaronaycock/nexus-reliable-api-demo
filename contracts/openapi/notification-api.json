@@ -1,0 +1,366 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Notification API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/v1/notifications": {
+      "post": {
+        "summary": "Send",
+        "description": "Send one notification.",
+        "operationId": "send",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationReceipt"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-nexus": {
+          "service": "notifications.v1",
+          "operation": "send"
+        }
+      },
+      "get": {
+        "summary": "List Sent",
+        "description": "The outbox: every notification actually sent, newest first.",
+        "operationId": "list_sent_v1_notifications_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response List Sent V1 Notifications Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/status": {
+      "get": {
+        "summary": "Status",
+        "operationId": "status_admin_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Status Admin Status Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/mode": {
+      "post": {
+        "summary": "Set Mode",
+        "operationId": "set_mode_admin_mode_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Mode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Set Mode Admin Mode Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/reset": {
+      "post": {
+        "summary": "Reset",
+        "operationId": "reset_admin_reset_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Reset Admin Reset Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Channel": {
+        "type": "string",
+        "enum": [
+          "email",
+          "in_app"
+        ],
+        "title": "Channel"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Mode": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "title": "Mode",
+            "description": "ok | maintenance | bug"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "title": "Mode"
+      },
+      "NotificationReceipt": {
+        "properties": {
+          "notification_id": {
+            "type": "string",
+            "title": "Notification Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "recipient": {
+            "type": "string",
+            "title": "Recipient"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/Channel"
+          },
+          "replayed": {
+            "type": "boolean",
+            "title": "Replayed",
+            "description": "True when the Idempotency-Key matched an earlier send.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "notification_id",
+          "status",
+          "recipient",
+          "channel"
+        ],
+        "title": "NotificationReceipt"
+      },
+      "NotificationRequest": {
+        "properties": {
+          "recipient": {
+            "type": "string",
+            "title": "Recipient",
+            "description": "User the notification is for."
+          },
+          "channel": {
+            "$ref": "#/components/schemas/Channel"
+          },
+          "template": {
+            "type": "string",
+            "title": "Template",
+            "description": "One of: change_approved, change_expired, change_rejected, task_assigned, task_reassigned"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject",
+            "description": "Optional subject line."
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference",
+            "description": "Business reference, e.g. a task ID."
+          }
+        },
+        "type": "object",
+        "required": [
+          "recipient",
+          "channel",
+          "template"
+        ],
+        "title": "NotificationRequest"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "APIKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    }
+  }
+}

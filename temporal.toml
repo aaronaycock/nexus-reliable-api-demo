@@ -1,0 +1,14 @@
+# Temporal environment profiles for this demo. The Makefile points
+# TEMPORAL_CONFIG_FILE here, so neither the CLI nor the SDK picks up any
+# global profile you may have.
+
+[profile.default]
+address = "localhost:7233"
+namespace = "api-callers"
+
+# Temporal Cloud with an API key. Select with TEMPORAL_PROFILE=cloud and set
+# TEMPORAL_API_KEY in your environment (never commit it). Fill in your
+# region's gRPC endpoint; see config/cloud.env.example for namespaces.
+[profile.cloud]
+address = "us-east-1.aws.api.temporal.io:7233"
+namespace = "nexus-demo-callers.ACCOUNT"
