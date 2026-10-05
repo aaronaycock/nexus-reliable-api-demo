@@ -4,6 +4,7 @@ Each check prints PASS or FAIL. The script exits non-zero if any check fails.
 """
 
 import asyncio
+import os
 import sys
 import time
 import uuid
@@ -14,7 +15,8 @@ from common import config
 from teams.billing.workflows import FeeChange, FeeChangeWorkflow
 
 GW, API, TC = config.GATEWAY_URL, config.NOTIFICATION_API_URL, config.TASK_CENTER_URL
-RUN = uuid.uuid4().hex[:4]  # keeps IDs unique across runs against the same dev server
+RUN = uuid.uuid4().hex[:4]  # keeps IDs unique across runs against the same server
+OWNER_VIEW = os.environ.get("GATEWAY_OWNER_VIEW", "true").lower() != "false"
 failures = 0
 
 
@@ -84,8 +86,12 @@ def scenario_1() -> None:
     mode("maintenance")
     code, r = call(*NOTIFY, {**body, "recipient": "lee"}, f"s1-outage-{RUN}", wait_s=1)
     check("API down: caller gets 202 and a status URL", code == 202 and r["status_url"].endswith(f"s1-outage-{RUN}"))
-    retrying = wait_for(lambda: (op(f"s1-outage-{RUN}").get("owner_view") or {}).get("pending_activities", [{}])[0].get("attempt", 0) >= 3)
-    check("owner's view shows the handler retrying", bool(retrying))
+    if OWNER_VIEW:
+        retrying = wait_for(lambda: (op(f"s1-outage-{RUN}").get("owner_view") or {}).get("pending_activities", [{}])[0].get("attempt", 0) >= 3)
+        check("owner's view shows the handler retrying", bool(retrying))
+    else:
+        print("SKIP  owner's view shows the handler retrying  (GATEWAY_OWNER_VIEW=false)")
+        wait_for(lambda: httpx.get(f"{API}/admin/status").json()["rejected"] >= 3)
     mode("ok")
     done = wait_for(lambda: op(f"s1-outage-{RUN}")["status"] == "COMPLETED", timeout=40)
     lee = [n for n in sent() if n["recipient"] == "lee" and n["reference"] == f"s1-{RUN}"]

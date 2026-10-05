@@ -6,3 +6,9 @@ __pycache__/
 .env
 cloud.env
 node_modules/
+
+# editor and OS files (a vim swap of cloud.env can contain the API key)
+*.swp
+*.swo
+*~
+.DS_Store

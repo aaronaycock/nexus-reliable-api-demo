@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: setup up up-cloud down codegen smoke fee-change ci-approval example-notify example-input plan-endpoints
+.PHONY: setup up up-cloud down codegen smoke smoke-cloud fee-change ci-approval example-notify example-input plan-endpoints
 
 setup:       ## venv + Temporal CLI 1.9+
 	scripts/setup.sh
@@ -19,6 +19,9 @@ codegen:     ## OpenAPI -> Nexus contract -> Python, with nexgen (downloaded on 
 
 smoke:       ## end-to-end checks against a running 'make up'
 	. scripts/env.sh && $$PY scripts/smoke_test.py
+
+smoke-cloud: ## the same checks against a running 'make up-cloud' (reads cloud.env)
+	. scripts/env.sh && set -a && . ./cloud.env && set +a && $$PY scripts/smoke_test.py
 
 fee-change:  ## billing team starts a fee change that needs approval
 	. scripts/env.sh && $$PY -m teams.billing.start --change-id $${ID:-42}

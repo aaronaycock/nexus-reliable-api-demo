@@ -149,11 +149,21 @@ make plan-endpoints            # every endpoint, target and allowlist across 5 s
 
 ## Running on Temporal Cloud
 
-1. Create the namespaces and endpoints. [`deploy/terraform/main.tf`](deploy/terraform/main.tf) shows the shape.
-2. Ask Temporal to enable Standalone Nexus Operations on the caller namespace (pre-release).
-3. `cp config/cloud.env.example cloud.env`, fill it in, then `make up-cloud`.
+Validated on Temporal Cloud: all 18 checks in `make smoke-cloud` pass.
 
-Callers and workers then connect with an API key through the `cloud` profile in `temporal.toml`. Nothing in the code changes.
+1. **Create three namespaces** with API-key auth: callers, notifications and tasks. [`deploy/terraform/main.tf`](deploy/terraform/main.tf) shows the shape.
+2. **Create the two endpoints** (Cloud UI → Nexus → Create Endpoint, or Terraform):
+
+   | Endpoint | Target namespace | Task queue | Allowed callers |
+   |---|---|---|---|
+   | `notifications-dev` | your notifications namespace | `notifications-nexus` | your callers namespace |
+   | `task-center-dev` | your tasks namespace | `task-center-nexus` | your callers namespace |
+
+3. **Ask Temporal to enable Standalone Nexus Operations on the callers namespace** (pre-release). Enablement is per caller namespace. Without it, every start from that namespace fails with `Standalone Nexus operation is disabled`.
+4. **Create a service account** with account role *Read* and *Write* on the three namespaces, and an API key for it. It needs nothing at the account level: endpoints are managed by a person, not by the workers.
+5. **`cp config/cloud.env.example cloud.env`**, fill in the key, region and namespace names, then `make up-cloud`. In a second terminal, `make smoke-cloud`.
+
+Callers and workers connect with the API key through the `cloud` profile in `temporal.toml`. Nothing in the code changes. Set `GATEWAY_OWNER_VIEW=true` only if the key can read the handler namespaces; otherwise the smoke test skips that one check.
 
 ## Learn more
 

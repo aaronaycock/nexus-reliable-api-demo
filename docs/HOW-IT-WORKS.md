@@ -147,7 +147,9 @@ The human-in-the-loop handler adds one more rule: one workflow per business refe
 
 ## Security
 
-- **The endpoint allowlist decides who can call.** On Temporal Cloud, each endpoint lists the caller namespaces allowed to reach it, including namespaces whose workflows call it. See [Nexus security](https://docs.temporal.io/nexus/security). (The local dev server does not enforce allowlists.)
+- **The endpoint allowlist decides who can call.** On Temporal Cloud, each endpoint lists the caller namespaces allowed to reach it, including namespaces whose workflows call it. See [Nexus security](https://docs.temporal.io/nexus/security). The local dev server does not enforce allowlists.
+  - **What a missing allowlist entry looks like, from a workflow** (observed on Cloud): the server rejects the call when the workflow schedules it, with `BadScheduleNexusOperationAttributes: caller namespace "…" unauthorized for "notifications-dev"`. The rejection fails the *workflow task*, so the workflow cannot catch it as an operation error. The workflow stalls until the allowlist is fixed or the workflow times out. Alert on workflow task failures, and add new caller namespaces to the allowlist before their first deploy.
+- **Standalone operations also need enablement** on the caller namespace while the feature is pre-release. A namespace without it gets `Standalone Nexus operation is disabled` on every start, even for an endpoint that allows it.
 - **Credentials stay with the handler.** Only the Notification team's worker has the Notification API key (`NOTIFICATION_API_KEY`). Callers never see it, and it is not in any operation's input. Anything in an operation's input is stored in event history, so secrets never belong there.
 - **The gateway is not an open proxy.** It only routes to operations listed in its catalog (`gateway/catalog.py`), which is built from the contracts. Put your own authentication in front of it.
 - **Split caller namespaces by trust boundary.** Access is per caller namespace today, and handlers do not see a verified caller identity. Callers that need different access belong in different caller namespaces.
@@ -166,6 +168,7 @@ The human-in-the-loop handler adds one more rule: one workflow per business refe
 
 > **Our recommendation** (pending Temporal's official guidance):
 > - **Callers watch their own operations,** in their own caller namespace: list, describe, metrics, or a gateway like this one. Give caller teams read access to their caller namespace, not to the namespaces of the teams they call.
+>   - *Tested on Temporal Cloud:* a service account with only namespace **Read** on the caller namespace could list, count and describe standalone operations and poll their results. It could not start or terminate them.
 > - **Owners watch their own workflows,** in their own namespace.
 > - **The link joins the two views** when someone with access to both needs to follow a call end to end.
 
